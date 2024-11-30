@@ -36,6 +36,8 @@ The scripts folder contains useful scripts I used throughout the project
 
 The folder contains the sql scripts and tables I used 
 
+## For a summary of each model and explanation of the results go to the ProjectExplanation PDF
+
 
 
 
