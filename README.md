@@ -1,6 +1,9 @@
 
 # Google Capstone
 
+## Note
+#### For a full of the results of each model and how it performed compared to others go to the Project Explanation PDF
+
 ### Overview
 
 This project serves as the Capstone project for the Google Data Analytics Professional
@@ -14,8 +17,6 @@ This project aims to build different models—Linear Regression, Multiple Linear
 k-Nearest Neighbors, and Decision Tree—to accurately predict countries’ happiness scores,
 and analyze these models to understand why certain models performed better than others
 
-## Note
-### For a summary of each model and explanation of the results go to the ProjectExplanation PDF 
 
 ## Folders
 
