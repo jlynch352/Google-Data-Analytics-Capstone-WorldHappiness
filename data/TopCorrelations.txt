@@ -1,0 +1,14 @@
+
+> print("Top Correlations")
+[1] "Top Correlations"
+
+> print(top_correlations)
+                           Variable Correlation
+AvgGDP                       AvgGDP   0.8191498
+AvgLifeExpectancy AvgLifeExpectancy   0.7910950
+AvgFamily                 AvgFamily   0.7807784
+AvgFreedom               AvgFreedom   0.5861416
+AvgCorruption         AvgCorruption   0.4577282
+AvgGenerosity         AvgGenerosity   0.1529299
+
+> sink()
