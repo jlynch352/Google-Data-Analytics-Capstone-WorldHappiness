@@ -1,0 +1,304 @@
+---
+title: "LinearRegressionMarkdown"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-11-25"
+---
+
+Loads needed librarys
+```{r, include=FALSE}
+library(tidyverse)
+library(plotly)
+library(htmlwidgets)
+library(car)
+```
+
+Defines the vars to generates 3d models with different independent variables
+```{r, include=FALSE}
+independent_vars <- c("AvgGDP", "AvgLifeExpectancy")  # Adjust these variables as needed
+
+dependent_var <- "AvgHappiness_Score"
+```
+
+Sources the data from the TablesJoinedOnCountry.R
+```{r, include=FALSE}
+source("/cloud/project/Scripts/TablesJoinedOnCountry.R")
+```
+
+
+Extracts the dependednt and independent variables
+```{r, include=FALSE}
+merged_data <- cleaned_data %>%
+  select(all_of(c(dependent_var, independent_vars))) %>%
+  drop_na()
+```
+
+
+Dynamically builds formula for different variables
+```{r, include=FALSE}
+formula <- as.formula(paste(dependent_var, "~", paste(independent_vars, collapse = " * ")))
+
+regression_model <- lm(formula, data = merged_data)
+```
+
+Adds the predicated data and residuals to the merged data data frame
+```{r, include=FALSE}
+merged_data <- merged_data %>%
+  mutate(
+    Predicted = predict(regression_model, .), 
+    Residual = !!sym(dependent_var) - Predicted  
+  )
+```
+
+
+Defines the accetable range
+```{r, include=FALSE}
+acceptable_range <- 0.5  
+```
+
+
+Mutates the plot_data frame to include two new columns
+1. Difference- Stores the value between the absolute value between the predicated and Actual happiness score
+2. Use a case state to the categories an entry into either "Correct", "Near Miss",or "Misclassified" by looking at the value of the difference variable 
+```{r, include=FALSE}
+merged_data <- merged_data %>%
+  mutate(
+    Difference = abs(Predicted - !!sym(dependent_var)),  # Calculate absolute difference
+    Category = case_when(
+      Difference < 0.01 ~ "Perfect",
+      Difference <= acceptable_range ~ "Near Miss",
+      TRUE ~ "Misclassified"
+    ),
+    Category = factor(Category, levels = c("Perfect", "Near Miss", "Misclassified"))
+  )
+```
+
+Sums each category
+```{r, include=FALSE}
+category_counts <- merged_data %>%
+  group_by(Category) %>%
+  summarize(Count = n()) %>%
+  ungroup()
+```
+
+
+Calculates the fraction (Perfect + Near Miss)/ Misclassified
+```{r, include=FALSE}
+PerfectNearMiss <- sum(category_counts$Count[category_counts$Category %in% c("Perfect", "Near Miss")])
+Misclassified <- category_counts$Count[category_counts$Category == "Misclassified"]
+
+correctPercentage <- PerfectNearMiss / (PerfectNearMiss + Misclassified)
+
+correctPercentage <-  correctPercentage * 100
+```
+
+Caculates Performance metrics
+```{r, include=FALSE}
+summary_model <- summary(regression_model)
+rmse <- sqrt(mean(merged_data$Residual^2, na.rm = TRUE))
+r_squared <- summary_model$r.squared
+```
+
+Creates text to pasted onto the graph
+```{r, include=FALSE}
+count_text <- paste(
+  "Correct", category_counts$Count[category_counts$Category == "Perfect"],
+  "\nNear Miss:", category_counts$Count[category_counts$Category == "Near Miss"],
+  "\nMisclassified:", category_counts$Count[category_counts$Category == "Misclassified"],
+  "\nCorrect Percentage:", round(correctPercentage, 2), "%",
+  "\nRMSE:", round(rmse, 2),
+  "\nR-squared:", round(r_squared, 2)
+)
+```
+
+1. Creates a 2d grid with every combinations of points for a 100 x 100 grid or of 10000 different points to model the plane.(note: 100 is not the range but the amount of discrete points the grid will use when plotting a plane)
+2. Predicts the happiness score for each point in the grid and adds to a table
+```{r, include=FALSE}
+# Create a grid for the regression plane
+grid <- expand.grid(
+  AvgGDP = seq(min(merged_data$AvgGDP, na.rm = TRUE), max(merged_data$AvgGDP, na.rm = TRUE), length.out = 100),
+  AvgLifeExpectancy = seq(min(merged_data$AvgLifeExpectancy, na.rm = TRUE), max(merged_data$AvgLifeExpectancy, na.rm = TRUE), length.out = 100)
+)
+grid$Predicted <- predict(regression_model, newdata = grid)
+```
+
+
+Dynamically sets the plot title and file name
+```{r, include=FALSE}
+plot_title <- paste("Regression Plane With Interaction: ", paste(independent_vars, collapse = "-"))
+```
+
+Generates an interactive 3d graph using plotly
+Key points:
+1. add_markers- add the data of the actual countries to the graph
+2. add_trace- add the plane of best fit the graph
+3. add_trace(2)- the next two add_traces add the planes showing wether or not the points are within the accetable range
+4. layout- defins the x, y, and z axis labels
+5. title- sets title
+6. annotations- adds important text to the plot
+```{r, include=FALSE}
+plot <- plot_ly() %>%
+  add_markers(
+    data = merged_data,
+    x = ~AvgGDP,
+    y = ~AvgLifeExpectancy,
+    z = ~AvgHappiness_Score,
+    color = ~Category,
+    colors = c("green", "blue", "red"),  # Matching colors to categories
+    marker = list(size = 5, opacity = 0.8),
+    name = "Data Points",
+    size = 1
+  ) %>%
+  add_trace(
+    data = grid,
+    x = ~AvgGDP,
+    y = ~AvgLifeExpectancy,
+    z = ~Predicted,
+    type = "mesh3d",
+    opacity = 0.5,
+    color = I("lightgray"),  
+    showscale = FALSE,
+    name = "Regression Plane"
+  ) %>% add_trace(
+    x = ~grid$AvgGDP, 
+    y = ~grid$AvgLifeExpectancy,
+    z = ~grid$Predicted + 0.5,
+    type = "mesh3d",
+    opacity = 0.3,
+    color = I("red"),  
+    showscale = FALSE,  
+    name = "Upper Boundary"
+  ) %>%
+  add_trace(
+    x = ~grid$AvgGDP, 
+    y = ~grid$AvgLifeExpectancy,
+    z = ~grid$Predicted - 0.5, 
+    type = "mesh3d",
+    opacity = 0.3,
+    color = I("purple"), 
+    showscale = FALSE,
+    name = "Lower Boundary"
+  )%>%
+  layout(
+    scene = list(
+      xaxis = list(title = independent_vars[1]),
+      yaxis = list(title = independent_vars[2]),
+      zaxis = list(title = dependent_var)
+    ),
+    title = plot_title,
+    annotations = list(
+      list(
+        x = 0.95,
+        y = 0.95,
+        xref = "paper",
+        yref = "paper",
+        text = count_text,
+        showarrow = FALSE,
+        font = list(size = 10, color = "black"),
+        xanchor = "right",
+        yanchor = "top"
+      )
+    )
+  )
+```
+
+Prints the plot
+```{r, include=TRUE}
+# Display plot
+print(plot)
+```
+
+Actual vs Predicted
+```{r, include=FALSE}
+# Prepare the data for plotting
+plot_predictions <- merged_data %>%
+  rename(Actual = !!sym(dependent_var)) %>%
+  select(Actual, Predicted, Category)
+
+# Create the ggplot
+q <- ggplot(plot_predictions, aes(x = Actual, y = Predicted)) +
+  geom_point(aes(color = Category, shape = Category), alpha = 0.7, size = 3) +
+  # Add the perfect prediction line
+  geom_abline(intercept = 0, slope = 1, color = "black", linetype = "dashed") +
+  # Add lines for the acceptable range
+  geom_abline(intercept = acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  geom_abline(intercept = -acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  theme_minimal() +
+  labs(
+    title = paste("Actual vs. Predicted", dependent_var),
+    subtitle = paste("Linear Regression of", paste(independent_vars, collapse = " + "), "on", dependent_var),
+    x = paste("Actual", dependent_var),
+    y = paste("Predicted", dependent_var),
+    color = "Prediction Category",
+    shape = "Prediction Category"
+  ) +
+  scale_color_manual(
+    values = c("Perfect" = "green", "Near Miss" = "purple", "Misclassified" = "red"),
+    drop = FALSE
+  ) +
+  scale_shape_manual(
+    values = c("Perfect" = 16, "Near Miss" = 17, "Misclassified" = 4),
+    drop = FALSE
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.title = element_text(size = 13),
+    legend.text = element_text(size = 11)
+  ) +
+  guides(
+    color = guide_legend(override.aes = list(shape = c(16, 17, 4))),
+    shape = guide_legend(override.aes = list(color = c("green", "purple", "red")))
+  ) +
+  # Add annotations for performance metrics
+  annotate(
+    "text",
+    x = 6,
+    y = 4.5,
+    label = count_text,
+    size = 3,
+    color = "black",
+    hjust = 0
+  )
+
+
+```
+
+```{r, include=TRUE}
+print(q)
+```
+
+Saves the files
+```{r, include=FALSE}
+# Generate HTML and Summary file names based on independent variables
+html_file <- paste0("Regression_With_Interaction_", paste(independent_vars, collapse = "_"), ".html")
+summary_file <- paste0("Summary_With_Interaction_", paste(independent_vars, collapse = "_"), ".txt")
+output_filename <- "3dWithInteractionActual_vs_Predicted_Plot.png"
+
+# Define paths for saving the plot and model summary
+plot_path <- "/cloud/project/Models/3dLinearRegression/DataAndGraphs/WithInteraction/"
+model_summary_path <- "/cloud/project/Models/3dLinearRegression/DataAndGraphs/WithInteraction/"
+
+# Save the plot as HTML
+# Ensure that 'plot' is an interactive plot object (e.g., created with plotly or ggplotly)
+saveWidget(plot, file.path(plot_path, html_file), selfcontained = TRUE)
+
+ggsave(
+  filename = file.path(plot_path, output_filename),  # Correctly specify the file path
+  plot = q,                                          # The ggplot object to save
+  width = 10,                                        # Width of the plot in inches (adjust as needed)
+  height = 8,                                        # Height of the plot in inches (adjust as needed)
+  dpi = 300                                          # Resolution of the plot
+)
+
+# Save the model summary to a text file using sink
+sink(file.path(model_summary_path, summary_file))
+cat("Regression Model Summary with Interaction:\n\n")
+print(summary(regression_model))  # Prints the summary of the linear regression model
+cat("\nRMSE:", round(rmse, 2))
+cat("\nR-squared:", round(r_squared, 2))
+sink()  # Close the sink connection
+```

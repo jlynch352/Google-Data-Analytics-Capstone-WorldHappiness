@@ -1,0 +1,23 @@
+Decision Tree Model Performance:
+
+Root Mean Squared Error (RMSE): 0.553 
+Correlation between Actual and Predicted: 0.882 
+
+n= 112 
+
+node), split, n, deviance, yval
+      * denotes terminal node
+
+ 1) root 112 130.390900 5.402054  
+   2) AvgLifeExpectancy< 0.5085274 30   7.242617 4.111173  
+     4) AvgGDP< 0.5180022 20   2.776878 3.896720 *
+     5) AvgGDP>=0.5180022 10   1.706325 4.540080 *
+   3) AvgLifeExpectancy>=0.5085274 82  54.867680 5.874327  
+     6) AvgGDP< 1.264547 58  24.278720 5.528124  
+      12) AvgFamily< 1.070936 17   2.675201 4.912635 *
+      13) AvgFamily>=1.070936 41  12.493200 5.783327  
+        26) AvgLifeExpectancy< 0.7527275 30   6.260210 5.599107 *
+        27) AvgLifeExpectancy>=0.7527275 11   2.438213 6.285745 *
+     7) AvgGDP>=1.264547 24   6.837437 6.710983  
+      14) AvgFamily< 1.338957 12   1.884636 6.339750 *
+      15) AvgFamily>=1.338957 12   1.645261 7.082217 *

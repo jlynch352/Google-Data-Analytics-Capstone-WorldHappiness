@@ -1,0 +1,287 @@
+---
+title: "LinearRegressionMarkdown"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-11-25"
+---
+
+
+Load necessary libraries
+```{r, include=FALSE}
+library(tidyverse)
+library(caret)
+```
+
+Runs the TablesJoinedOnCountry Script to access the data
+```{r, include=FALSE}
+source("/cloud/project/Scripts/TablesJoinedOnCountry.R")
+```
+
+Extracts the data from the cleaned_data variable in the TablesJoinedOnCountry.R script
+```{r, include=FALSE}
+data <- cleaned_data %>%
+  select(AvgHappiness_Score, AvgGDP) %>%
+  drop_na()
+```
+
+
+Sets the seed to make sure all the results can be replicated
+Splits the data into train and test sets 
+```{r, include=FALSE}
+set.seed(123)
+train_index <- createDataPartition(data$AvgHappiness_Score, p = 0.8, list = FALSE)
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+```
+
+Builds the linear regression model using the train_data
+```{r, include=FALSE}
+model <- lm(AvgHappiness_Score ~ AvgGDP, data = train_data)
+```
+
+```{r, include=FALSE}
+# Make predictions on the test set
+predictions <- predict(model, test_data)
+```
+
+Make predictions using the test data and then calculates performance metrics for the model
+```{r, include=FALSE}
+residuals <- test_data$AvgHappiness_Score - predictions
+rmse <- sqrt(mean(residuals^2))
+
+sst <- sum((test_data$AvgHappiness_Score - mean(test_data$AvgHappiness_Score))^2)
+sse <- sum(residuals^2)
+r_squared <- 1 - (sse / sst)
+
+```
+
+Sets up data frame for plotting the actual vs predicted scores
+```{r, include=FALSE}
+plot_data <- data.frame(
+  Actual = test_data$AvgHappiness_Score,
+  Predicted = predictions
+)
+```
+
+Acceptable range in which we will say the guess was accurate, any prediction from the model outside of this range will be classified as wrongly predicted 
+```{r, include=FALSE}
+# Define acceptable range
+acceptable_range <- 0.5 
+```
+
+
+Mutates the plot_data frame to include two new columns
+1. Difference- Stores the value between the absolute value between the predicated and Actual happiness score
+2. Use a case state to the categories an entry into either "Correct", "Near Miss",or "Misclassified" by looking at the value of the difference variable 
+```{r, include=FALSE}
+plot_predictions <- plot_data %>%
+  mutate(
+    Difference = abs(Predicted - Actual),
+    Category = case_when(
+      Difference <= 0.1 ~ "Correct",          
+      Difference <= acceptable_range ~ "Near Miss",
+      TRUE ~ "Misclassified"
+    ),
+    Category = factor(Category, levels = c("Correct", "Near Miss", "Misclassified"))
+  )
+```
+
+
+Sums each category
+```{r, include=FALSE}
+category_counts <- plot_predictions %>%
+  group_by(Category) %>%
+  summarize(Count = n()) %>%
+  ungroup()
+```
+
+
+Caculates the fraction (Correct + Near Miss)/ Misclassified
+```{r, include=FALSE}
+correctPercentage <- category_counts[1,2] / ( category_counts[1,2] + category_counts[2,2]) 
+correctPercentage <- round(correctPercentage,2)
+correctPercentage <- sprintf("%.2f%%", correctPercentage * 100)
+```
+
+
+
+Creates reusable text to put on the graphs to display information about the model
+```{r, include=FALSE}
+count_text <- paste(
+  "Near Miss:", category_counts$Count[category_counts$Category == "Near Miss"],
+  "\nMisclassified:", category_counts$Count[category_counts$Category == "Misclassified"],
+  "\nCorrect Percentage:", correctPercentage,
+  "\nRMSE:", round(rmse, 2),
+  "\nR-squared:", round(r_squared, 2)
+)
+```
+
+
+use ggplot to create a graph
+Key details:
+1. geom_point-plots the actual scores vs the predicted scores as a scatter plot
+2. geom_abline- adds 3 lines: one in the line y= x, any points directly on this curve were correctly predicted. The two other lines represent the margin of error, and any point between these two lines is classified as a near miss.
+3. Labs- adds label to the grpah
+4. scale_color_manual- changes the color of the points based on accuracy of the predictions
+5. scale_shape_manual- changes the shape of the points based on accuracy of the predictions
+6. Theme- adjust positions, size, and format of some text
+7. guides- correctly formats the legend
+8. annonate- adds importnat information as text to the graph 
+```{r, include=FALSE}
+# Create the Actual vs. Predicted scatter plot
+p <- ggplot(plot_predictions, aes(x = Actual, y = Predicted)) +
+  geom_point(aes(color = Category, shape = Category), alpha = 0.7, size = 3) +
+  geom_abline(intercept = 0, slope = 1, color = "black", linetype = "dashed") +  # Perfect prediction line
+  geom_abline(intercept = acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  geom_abline(intercept = -acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  theme_minimal() +
+  labs(
+    title = "Actual vs. Predicted AvgHappiness_Score",
+    subtitle = "Linear Regression of AvgGDP on AvgHappiness_Score",
+    x = "Actual AvgHappiness_Score",
+    y = "Predicted AvgHappiness_Score",
+    color = "Prediction Category",
+    shape = "Prediction Category"
+  ) +
+  scale_color_manual(
+    values = c("Correct" = "green", "Near Miss" = "purple", "Misclassified" = "red"),
+    drop = FALSE  
+  ) +
+  scale_shape_manual(
+    values = c("Correct" = 16, "Near Miss" = 17, "Misclassified" = 4),
+    drop = FALSE  # Prevent dropping unused levels
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.title = element_text(size = 13),
+    legend.text = element_text(size = 11)
+  ) +
+  guides(
+    color = guide_legend(override.aes = list(shape = c(16, 17, 4))),
+    shape = guide_legend(override.aes = list(color = c("green", "purple", "red")))
+  ) +
+  annotate(
+    "text",
+    x = 6,  
+    y = 4.25,
+    label = count_text,
+    size = 3,
+    color = "black"
+  )
+```
+
+Prints the graph
+```{r, include=True}
+print(p)
+
+```
+
+
+
+Gets the data points of the train_data for graph vs the line of best of fit, and generates points for upper and lower bounds for a correct predictions
+```{r, include=FALSE}
+train_predictions <- predict(model, train_data)
+
+train_data <- train_data %>%
+  mutate(
+    Predicted = train_predictions,
+    Upper = Predicted + acceptable_range,
+    Lower = Predicted - acceptable_range
+  )
+```
+
+Finds the correct amount of points within the accetable range
+```{r, include=FALSE}
+within_range_count <- sum(abs(train_data$Predicted - train_data$AvgHappiness_Score) <= acceptable_range)
+within_range_percentage <- (within_range_count / nrow(train_data)) * 100
+within_range_percentage_formatted <- sprintf("%.2f%%", round(within_range_percentage, 2))
+
+```
+
+Modify count text
+```{r, include=FALSE}
+count_text <- paste(
+  "\nRMSE:", round(rmse, 2),
+  "\nR-squared:", round(r_squared, 2),
+  "\nWithin Acceptable Range:", within_range_count,
+  "\n(", within_range_percentage_formatted, ")"
+)
+```
+
+
+use ggplot to create a graph
+Key details:
+1. geom_point-plots the the average GDP of a country vs its actual happiness score
+2. geom_smooth- plots the line of best fit for the data
+3. geom_line- plots the lines for the upper and lower bounds of a nearly correct guess
+4. labs- adds labels to graph
+5. theme- adjust the formtating of ceritan labels
+6. annotate- adds text to the plot 
+7. x/ylim- adjust the range of the x and y axis 
+```{r, include=FALSE}
+g <- ggplot(train_data, aes(x = AvgGDP, y = AvgHappiness_Score)) +
+  geom_point(alpha = 0.7, color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  geom_line(aes(y = Upper), color = "blue", linetype = "dotted") +  # Upper acceptable range
+  geom_line(aes(y = Lower), color = "blue", linetype = "dotted") +  # Lower acceptable range
+  labs(
+    title = "Linear Regression",
+    subtitle = "Line of Best Fit",
+    x = "Average GDP",
+    y = "Average Happiness Score"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.title = element_text(size = 13),
+    legend.text = element_text(size = 11)
+  ) +
+  annotate(
+    "text",
+    x = 1.5,  # Position at the far right
+    y = 3.5,  # Position at the top
+    label = count_text,
+    size = 3,
+    color = "black",
+  ) +
+  xlim(0, 2) +
+  ylim(0,8.5)
+```
+
+Prints the graph
+```{r, include=True}
+print(g)
+```
+
+Saves the graph
+```{r, include=FALSE}
+# Save the plots
+ggsave(
+  filename = "/cloud/project/Models/LinearRegression/DataAndGraphs/Actual_vs_PredictedLinearRegression.png",
+  plot = p,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+ggsave(
+  filename = "/cloud/project/Models/LinearRegression/DataAndGraphs/LinearRegressionModel.png",
+  plot = g,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+# Save the model summary to a text file
+sink("/cloud/project/Models/LinearRegression/DataAndGraphs/LinearRegressionOfGDP.txt")
+cat("Linear Regression of AvgHappiness_Score on AvgGDP\n\n")
+print(summary(model))
+sink()
+```

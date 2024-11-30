@@ -1,0 +1,42 @@
+Multiple Regression With Interaction Terms: AvgHappiness_Score ~ (AvgGDP + AvgFamily + AvgCorruption + AvgFreedom + AvgGenerosity + AvgLifeExpectancy)^2
+
+
+Call:
+lm(formula = AvgHappiness_Score ~ (AvgGDP + AvgFamily + AvgCorruption + 
+    AvgFreedom + AvgGenerosity + AvgLifeExpectancy)^2, data = train_data)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-1.00513 -0.20704  0.00971  0.18928  0.99802 
+
+Coefficients:
+                                Estimate Std. Error t value Pr(>|t|)   
+(Intercept)                       2.9344     0.9562   3.069  0.00284 **
+AvgGDP                            1.2931     1.4081   0.918  0.36089   
+AvgFamily                        -0.4684     1.0474  -0.447  0.65578   
+AvgCorruption                    -5.2578     3.3244  -1.582  0.11725   
+AvgFreedom                        3.2579     2.1884   1.489  0.14005   
+AvgGenerosity                     2.1757     2.8034   0.776  0.43972   
+AvgLifeExpectancy                -0.6843     2.3567  -0.290  0.77219   
+AvgGDP:AvgFamily                 -0.6065     1.1625  -0.522  0.60315   
+AvgGDP:AvgCorruption              2.0665     3.2300   0.640  0.52394   
+AvgGDP:AvgFreedom                -3.1305     3.1703  -0.987  0.32607   
+AvgGDP:AvgGenerosity              6.7637     3.5331   1.914  0.05875 . 
+AvgGDP:AvgLifeExpectancy         -0.6280     0.9317  -0.674  0.50204   
+AvgFamily:AvgCorruption           3.1470     3.2135   0.979  0.33006   
+AvgFamily:AvgFreedom              0.4907     2.4145   0.203  0.83942   
+AvgFamily:AvgGenerosity           0.9370     2.9727   0.315  0.75334   
+AvgFamily:AvgLifeExpectancy       3.0139     2.1579   1.397  0.16595   
+AvgCorruption:AvgFreedom         -1.2210     5.9013  -0.207  0.83655   
+AvgCorruption:AvgGenerosity       2.4998     6.5887   0.379  0.70528   
+AvgCorruption:AvgLifeExpectancy   0.3011     5.8124   0.052  0.95880   
+AvgFreedom:AvgGenerosity         -9.5830     5.3878  -1.779  0.07867 . 
+AvgFreedom:AvgLifeExpectancy      2.9201     4.5456   0.642  0.52224   
+AvgGenerosity:AvgLifeExpectancy  -8.9782     4.9929  -1.798  0.07550 . 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.4596 on 90 degrees of freedom
+Multiple R-squared:  0.8542,	Adjusted R-squared:  0.8202 
+F-statistic: 25.11 on 21 and 90 DF,  p-value: < 2.2e-16
+

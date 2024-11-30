@@ -1,0 +1,375 @@
+---
+title: "LinearRegressionMarkdown"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-11-25"
+---
+
+Loads needed librarys
+```{r, include=FALSE}
+library(tidyverse)
+library(FNN)         # For KNN Regression and neighbor finding
+library(ggplot2)
+library(caret)       # For model training and cross-validation
+library(ggrepel)     # For improved text labeling in plots
+library(igraph)      # For network graph visualization
+library(ggraph)      # For enhanced graph plotting
+library(viridis)     # For color scales
+```
+
+Sources the data from the table created in the TablesJoinedOnCountry.R script
+```{r, include=FALSE}
+# Source your data cleaning script
+source("/cloud/project/Scripts/TablesJoinedOnCountry.R")  # Ensure the path and spelling are correct
+```
+
+Extracts columns that will be used later from the table
+```{r, include=FALSE}
+data <- cleaned_data %>% drop_na()
+
+countries <- data$Country
+
+dependent <- data$AvgHappiness_Score
+
+independent <- data %>%
+  select(-Country, -AvgHappiness_Score)
+```
+
+Scales and Centers the data to improve models performance
+```{r, include=FALSE}
+preProcValues <- preProcess(independent, method = c("center", "scale"))
+independent_scaled <- predict(preProcValues, independent)
+```
+
+Sets the seed so results can be attained later
+```{r, include=FALSE}
+set.seed(123)
+```
+
+
+Finds the index to splits the data at
+```{r, include=FALSE}
+size <- floor(0.80 * nrow(independent_scaled))  # Adjusted to 80%
+```
+
+Finds the index to split the dataframe at for the frame training data
+```{r, include=FALSE}
+train_index <- sample(seq_len(nrow(independent_scaled)), size = size)
+```
+
+Splits the data into training and testing data
+```{r, include=FALSE}
+data_train <- independent_scaled[train_index, ]
+data_test <- independent_scaled[-train_index, ]
+```
+
+Preservese the country labels for modeling later
+```{r, include=FALSE}
+train_countries <- countries[train_index]
+test_countries <- countries[-train_index]
+
+train_labels <- dependent[train_index]
+test_labels <- dependent[-train_index]
+```
+
+Find the optimal k value for the kthNearestNeighbor model
+Steps:
+1. k_values- selects that range of k values to examine
+2. control- configures the cross k validation technique to optimal train and test the model to prevent overfitting
+3. knn_tuned- trains the model using the parameters found early
+```{r, include=FALSE}
+k_values <- seq(3, 15, by = 2)
+
+control <- trainControl(method = "cv", number = 5)
+
+knn_tuned <- train(
+  x = data_train,
+  y = train_labels,
+  method = "knn",
+  tuneGrid = data.frame(k = k_values),
+  trControl = control,
+  metric = "RMSE"
+)
+
+best_k <- knn_tuned$bestTune$k
+```
+
+Predict that happiness score of the testing data
+```{r, include=FALSE}
+knn_reg <- knn.reg(
+  train = data_train,
+  test = data_test,
+  y = train_labels,
+  k = best_k
+)
+
+predictions <- knn_reg$pred
+```
+
+Finds the kth neighbors that the model associated with test data point
+```{r, include=FALSE}
+knn_neighbors <- get.knnx(data = data_train, query = data_test, k = best_k)
+```
+
+Makes a data frane of test countires in one column and the kth nearest neighbors of it in another
+```{r, include=FALSE}
+knn_df <- data.frame(
+  Test_Country = test_countries,
+  Neighbors = apply(knn_neighbors$nn.index, 1, function(indices) {
+    paste(train_countries[indices], collapse = ", ")
+  })
+)
+```
+
+Write the neighbors to a CSV file, was used for checking model
+```{r, include=FALSE}
+write.csv(knn_df, file = "/cloud/project/Models/KthNearestNeighbor/DataAndGraphs/knn_neighbors.csv", row.names = FALSE, quote = TRUE)
+```
+
+Caculates performance metrics of the model
+```{r, include=FALSE}
+residuals <- test_labels - predictions
+rmse <- sqrt(mean(residuals^2))
+
+sst <- sum((test_labels - mean(test_labels))^2)
+sse <- sum(residuals^2)
+r_squared <- 1 - (sse / sst)
+```
+
+Setst the accetable range
+```{r, include=FALSE}
+acceptable_range <- 0.5 
+```
+
+
+1. Generates a data frame for plotting the actual happiness score vs the predicted one
+2. Mutates that dataframe to add two columnes:
+  -First Column contains the difference between the actual vs predicted happens scores
+  -Second Column contains the classification of the point based on wether in was within the accetable range
+```{r, include=FALSE}
+plot_predictions <- data.frame(
+  Actual = test_labels,
+  Predicted = predictions
+) %>%
+  mutate(
+    Difference = abs(Predicted - Actual),
+    Category = case_when(
+      Difference <= 0.1 ~ "Perfect",
+      Difference <= acceptable_range ~ "Near Miss",
+      TRUE ~ "Misclassified"
+    ),
+    Category = factor(Category, levels = c("Perfect", "Near Miss", "Misclassified"))
+  )
+```
+
+Sums the the number of each points in each catogory
+```{r, include=FALSE}
+category_counts <- plot_predictions %>%
+  count(Category) %>%
+  complete(Category = c("Perfect", "Near Miss", "Misclassified"), fill = list(n = 0)) %>%
+  rename(Count = n)
+```
+
+Caculates the percentage of how many where correctly classified within the acceptable range
+```{r, include=FALSE}
+perfect_count <- category_counts$Count[category_counts$Category == "Perfect"]
+near_miss_count <- category_counts$Count[category_counts$Category == "Near Miss"]
+misclassified_count <- category_counts$Count[category_counts$Category == "Misclassified"]
+```
+
+Calculates the fraction (Perfect + Near Miss)/ Misclassified
+```{r, include=FALSE}
+PerfectNearMiss <- sum(category_counts$Count[category_counts$Category %in% c("Perfect", "Near Miss")])
+Misclassified <- category_counts$Count[category_counts$Category == "Misclassified"]
+
+correctPercentage <- PerfectNearMiss / (PerfectNearMiss + Misclassified)
+
+correctPercentage <-  correctPercentage * 100
+```
+
+creates a text bubble for the plot
+```{r, include=FALSE}
+count_text <- paste(
+  "Perfect:", perfect_count,
+  "\nNear Miss:", near_miss_count,
+  "\nMisclassified:", misclassified_count,
+  "\nPercentage Correct:", round(correctPercentage, 2), "%",
+  "\nRMSE:", round(rmse, 2),
+  "\nR-squared:", round(r_squared, 2)
+)
+```
+
+use ggplot to create a graph
+Key details:
+1. geom_point-plots the actual scores vs the predicted scores as a scatter plot
+2. geom_abline- adds 3 lines: one in the line y= x, any points directly on this curve were correctly predicted. The two other lines represent the margin of error, and any point between these two lines is classified as a near miss.
+3. Labs- adds label to the grpah
+4. scale_color_manual- changes the color of the points based on accuracy of the predictions
+5. scale_shape_manual- changes the shape of the points based on accuracy of the predictions
+6. Theme- adjust positions, size, and format of some text
+7. guides- correctly formats the legend
+8. annonate- adds importnat information as text to the graph 
+```{r, include=FALSE}
+# Create the scatter plot with defined color and shape scales
+p <- ggplot(plot_predictions, aes(x = Actual, y = Predicted)) +
+  geom_point(aes(color = Category, shape = Category), alpha = 0.7, size = 3) +
+  geom_abline(intercept = 0, slope = 1, color = "black", linetype = "dashed") +  # Perfect prediction line
+  geom_abline(intercept = acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  geom_abline(intercept = -acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  theme_minimal() +
+  xlim(2.5, 8) +
+  ylim(2.5, 8) +
+  labs(
+    title = "Actual vs. Predicted AvgHappiness_Score",
+    subtitle = paste("KNN Regression (k =", best_k, ")"),
+    x = "Actual AvgHappiness_Score",
+    y = "Predicted AvgHappiness_Score",
+    color = "Prediction Category",
+    shape = "Prediction Category"
+  ) +
+  scale_color_manual(
+    values = c("Perfect" = "green", "Near Miss" = "purple", "Misclassified" = "red"),
+    drop = FALSE  # Prevent dropping unused levels
+  ) +
+  scale_shape_manual(
+    values = c("Perfect" = 16, "Near Miss" = 17, "Misclassified" = 4),
+    drop = FALSE  # Prevent dropping unused levels  
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.title = element_text(size = 13),
+    legend.text = element_text(size = 11)
+  ) +
+  guides(
+    color = guide_legend(override.aes = list(shape = c(16, 17, 4))),
+    shape = guide_legend(override.aes = list(color = c("green", "purple", "red")))
+  ) +
+  annotate(
+    "text",
+    x = 8,  # Position at the far right based on data
+    y = 5,  # Position at the top based on data
+    label = count_text,
+    size = 3,
+    color = "black",
+    hjust = 1  # Align text to the right
+  )
+```
+
+Prints the plot
+```{r, include=TRUE}
+print(p)
+```
+
+Creates list of edges by:
+1. Seperating the neighbors column in the knn_df to seperate columns containing each one country
+2. Creates two columns which contain where the node are coing from and where they are going
+```{r, include=FALSE}
+edge_list <- knn_df %>%
+  separate_rows(Neighbors, sep = ",\\s*") %>%
+  rename(From = Test_Country, To = Neighbors)
+```
+
+Append the countries to their, happiness scores
+```{r, include=FALSE}
+country_scores <- data.frame(
+  Country = countries,
+  AvgHappiness_Score = dependent
+)
+```
+
+
+Finds the countires and contained in the edge list and creates a new dataframe only containg the information of the nodes the belong in the graph
+```{r, include=FALSE}
+unique_countries <- unique(c(edge_list$From, edge_list$To))
+country_scores <- country_scores %>%
+  filter(Country %in% unique_countries)
+```
+
+Creates the graph object
+1. d = edge_list - states the relation ships bewteen edges and vertices
+2. vertices - defines which columns are the vertices
+3. directed = FALSE - this graph isn't directed
+```{r, include=FALSE}
+g <- graph_from_data_frame(
+  d = edge_list,
+  directed = FALSE,
+  vertices = country_scores %>% rename(name = Country)
+)
+```
+
+Assigns a value checking if the country is test country of just one that was considered a neighbor of one
+Assigns the happiness vairble to the vertexs
+```{r, include=FALSE}
+V(g)$type <- ifelse(V(g)$name %in% knn_df$Test_Country, "Test Country", "Neighbor")
+V(g)$happiness <- V(g)$AvgHappiness_Score
+```
+
+Creates ten different catogories to split the happiness scores into
+```{r, include=FALSE}
+V(g)$happiness_bin <- cut(V(g)$happiness, breaks = 10)  # Adjust 'breaks' as needed
+```
+
+Sets the size of the nodes
+```{r, include=FALSE}
+V(g)$size <- 5
+```
+
+Sets the seed so the results can be replicated later
+```{r, include=FALSE}
+set.seed(123)
+```
+
+Generates a graph using ggrapg
+Keys:
+1.geom_edge_link - intialize the format of the edges
+2. geom_node_poin - intializes each node
+3.geom_node_text - sets what each node will say text wise
+4. scale_color_brewer- picks the colors for the the classification of the vertexs 
+5. labs - creates labels for the graph
+5. theme - sets the legends position
+```{r, include=FALSE}
+network_plot <- ggraph(g, layout = "fr") +
+  geom_edge_link(aes(alpha = 0.5), color = "gray") +
+  geom_node_point(aes(color = happiness_bin), size = V(g)$size) +
+  geom_node_text(
+    aes(label = paste0(name, " (", round(happiness, 1), ")")),
+    repel = TRUE,
+    size = 3
+  ) +
+  scale_color_brewer(palette = "RdBu") +
+  theme_minimal() +
+  labs(
+    title = "K-Nearest Neighbors Network",
+    subtitle = paste("KNN Regression (k =", best_k, ")"),
+    color = "Avg Happiness Score"
+  ) +
+  theme(legend.position = "bottom")
+```
+
+prints the graph
+```{r, include=TRUE}
+print(network_plot)
+```
+saves the plots
+```{r, include=FALSE}
+ggsave(
+  filename = "/cloud/project/Models/KthNearestNeighbor/DataAndGraphs/KNN_NetworkGraph.png",
+  plot = network_plot,
+  width = 10,
+  height = 8,
+  dpi = 300
+)
+
+ggsave(
+  filename = "/cloud/project/Models/KthNearestNeighbor/DataAndGraphs/Actual_vs_PredictedKNN_Optimized.png",
+  plot = p,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+```

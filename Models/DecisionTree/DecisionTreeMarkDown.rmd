@@ -1,0 +1,223 @@
+---
+title: "LinearRegressionMarkdown"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-11-25"
+---
+
+Load necessaries libraries
+```{r, include=FALSE}
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(caret)
+```
+
+Sources the tables from the script TablesJoinedOnCountry.R
+```{r, include=FALSE}
+source("/cloud/project/Scripts/TablesJoinedOnCountry.R")  
+```
+
+Cleans 
+```{r, include=FALSE}
+data <- cleaned_data %>%
+  select(-Country) %>% 
+  drop_na()
+```
+
+Sets the seed
+```{r, include=FALSE}
+set.seed(123)  
+train_index <- createDataPartition(data$AvgHappiness_Score, p = 0.8, list = FALSE)  # 80% training
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+```
+
+trains the model
+```{r, include=FALSE}
+dt_model <- rpart(
+  AvgHappiness_Score ~ ., 
+  data = train_data, 
+  method = "anova"
+)
+```
+
+Predicts the happiness scores 
+```{r, include=FALSE}
+dt_predictions <- predict(dt_model, test_data)
+```
+
+Creates the dataframe for plotting the data of actual vs predicted 
+```{r, include=FALSE}
+results <- data.frame(
+  Actual = test_data$AvgHappiness_Score,
+  Predicted = dt_predictions
+)
+```
+
+Calculates the performance metrics of the model
+```{r, include=FALSE}
+rmse <- sqrt(mean((results$Predicted - results$Actual)^2))
+correlation <- cor(results$Actual, results$Predicted)
+r_squared <- correlation^2
+```
+
+Sets the acceptable range
+```{r, include=FALSE}
+acceptable_range <- 0.5  
+```
+
+Mutates the plot_data frame to include two new columns
+1. Difference- Stores the value between the absolute value between the predicated and Actual happiness score
+2. Use a case state to the categories an entry into either "Correct", "Near Miss",or "Misclassified" by looking at the value of the difference variable 
+```{r, include=FALSE}
+plot_predictions <- results %>%
+  mutate(
+    Difference = abs(Predicted - Actual),
+    Category = case_when(
+      Difference <= 0.01 ~ "Correct",  # Very close predictions
+      Difference <= acceptable_range ~ "Near Miss",
+      TRUE ~ "Misclassified"
+    ),
+    Category = factor(Category, levels = c("Correct", "Near Miss", "Misclassified"))
+  )
+category_counts <- plot_predictions %>%
+  group_by(Category) %>%
+  summarize(Count = n()) %>%
+  ungroup()
+```
+
+Calculates the fraction (Correct + Near Miss)/ Misclassified
+```{r, include=FALSE}
+correctPercentage <- category_counts[1,2] / ( category_counts[1,2] + category_counts[2,2]) 
+correctPercentage <- round(correctPercentage,2)
+correctPercentage <- sprintf("%.2f%%", correctPercentage * 100)
+```
+
+Genreates text bubble for the plot
+```{r, include=FALSE}
+count_text <- paste(
+  "\nNear Miss:", category_counts$Count[category_counts$Category == "Near Miss"],
+  "\nMisclassified:", category_counts$Count[category_counts$Category == "Misclassified"],
+  "\ncorrectedPercentage:", correctPercentage, "%", 
+  "\nRMSE:", round(rmse, 2),
+  "\nR-sqaured:", round(r_squared, 2)
+)
+```
+
+use ggplot to create a graph
+Key details:
+1. geom_point-plots the actual scores vs the predicted scores as a scatter plot
+2. geom_abline- adds 3 lines: one in the line y= x, any points directly on this curve were correctly predicted. The two other lines represent the margin of error, and any point between these two lines is classified as a near miss.
+3. Labs- adds label to the grpah
+4. scale_color_manual- changes the color of the points based on accuracy of the predictions
+5. scale_shape_manual- changes the shape of the points based on accuracy of the predictions
+6. Theme- adjust positions, size, and format of some text
+7. guides- correctly formats the legend
+8. annonate- adds importnat information as text to the graph 
+```{r, include=FALSE}
+actual_vs_predicted_plot <- ggplot(plot_predictions, aes(x = Actual, y = Predicted)) +
+  geom_point(aes(color = Category, shape = Category), alpha = 0.7, size = 3) +
+  geom_abline(intercept = 0, slope = 1, color = "black", linetype = "dashed") +  # Perfect prediction line
+  geom_abline(intercept = acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  geom_abline(intercept = -acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  theme_minimal() +
+  xlim(2.5, 8)+
+  ylim(2.5, 8)+
+  labs(
+    title = "Actual vs. Predicted AvgHappiness_Score",
+    subtitle = "Decision Tree Regression Model",
+    x = "Actual AvgHappiness_Score",
+    y = "Predicted AvgHappiness_Score",
+    color = "Prediction Category",
+    shape = "Prediction Category"
+  ) +
+  scale_color_manual(
+    values = c("Correct" = "green", "Near Miss" = "purple", "Misclassified" = "red"),
+    drop = FALSE  # Prevent dropping unused levels
+  ) +
+  scale_shape_manual(
+    values = c("Correct" = 16, "Near Miss" = 17, "Misclassified" = 4),
+    drop = FALSE  # Prevent dropping unused levels
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.title = element_text(size = 13),
+    legend.text = element_text(size = 11)
+  ) +
+  guides(
+    color = guide_legend(override.aes = list(shape = c(16, 17, 4))),
+    shape = guide_legend(override.aes = list(color = c("green", "purple", "red")))
+  ) +
+  # Add RMSE annotation
+  annotate(
+    "text",
+    x = 3,  # Position at the far right
+    y = 6,  # Position at the top
+    label = paste("RMSE:", round(rmse, 3)),
+    size = 3,
+    color = "black",
+  )+
+  annotate(
+    "text",
+    x = 7,  # Position at the far right
+    y = 4,  # Position at the top
+    label = count_text,
+    size = 4,
+    color = "black",
+  )
+```
+
+Prints the graph
+```{r, include=TRUE}
+print(actual_vs_predicted_plot)
+```
+
+
+```{r, include=TRUE}
+r <-rpart.plot(
+  dt_model, 
+  type = 3, 
+  fallen.leaves = TRUE, 
+  main = "Decision Tree for Predicting AvgHappiness_Score",
+  extra = 101, 
+  under = TRUE, 
+  faclen = 0, 
+  cex = 0.8
+  )
+```
+
+saves the diagram of the tree, the plot, and the performance metrics
+```{r, include=FALSE}
+png(filename = "/cloud/project/Models/DecisionTree/DataAndGraphs/decision_tree.png", width = 800, height = 600)
+r <-rpart.plot(
+  dt_model, 
+  type = 3, 
+  fallen.leaves = TRUE, 
+  main = "Decision Tree for Predicting AvgHappiness_Score",
+  extra = 101, 
+  under = TRUE, 
+  faclen = 0, 
+  cex = 0.8
+  )
+dev.off()
+
+ggsave(
+  filename = "/cloud/project/Models/DecisionTree/DataAndGraphs/Actual_vs_Predicted_DecisionTree.png",
+  plot = actual_vs_predicted_plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+sink("/cloud/project/Models/DecisionTree/DataAndGraphs/DecisionTreePerformance.txt")
+cat("Decision Tree Model Performance:\n\n")
+cat("Root Mean Squared Error (RMSE):", round(rmse, 3), "\n")
+cat("Correlation between Actual and Predicted:", round(correlation, 3), "\n\n")
+print(dt_model)
+sink()
+```

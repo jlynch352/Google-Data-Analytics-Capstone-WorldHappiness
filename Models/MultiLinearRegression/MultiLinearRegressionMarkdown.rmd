@@ -1,0 +1,356 @@
+---
+title: "MultiLinearRegressionMarkdown"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-11-25"
+---
+
+Loads needed librarys
+```{r, include=FALSE}
+library(tidyverse)
+library(caret)
+```
+
+Gets data from TablesJoinedOnCountry.R
+```{r, include=FALSE}
+source("/cloud/project/Scripts/TablesJoinedOnCountry.R")
+```
+
+Selects only the avgerage of each varaible from the cleaned data variable loaded fromn TablesJoinedOnCountry.R
+```{r, include=FALSE}
+data <- cleaned_data %>%
+  select(AvgHappiness_Score, AvgGDP, AvgFamily, AvgCorruption, AvgFreedom, AvgGenerosity, AvgLifeExpectancy) %>%
+  drop_na()
+```
+
+
+Sets seed to make sure the results are the same each time and splits the data into training and testing data
+```{r, include=FALSE}
+set.seed(123)
+train_index <- createDataPartition(data$AvgHappiness_Score, p = 0.8, list = FALSE)
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+```
+
+
+Builds a multi-linear regression model with six independent variables 
+```{r, include=FALSE}
+regressionModelWithoutInteraction <- lm(
+  AvgHappiness_Score ~ AvgGDP + AvgFamily + AvgCorruption + AvgFreedom + AvgGenerosity + AvgLifeExpectancy,
+  data = train_data
+)
+```
+
+Makes predictions with the test data
+```{r, include=FALSE}
+predictionWithoutInteraction <- predict(regressionModelWithoutInteraction, newdata = test_data)
+```
+
+
+Caculates performance metrics of the given mdoel
+```{r, include=FALSE}
+residualsWithoutInteraction <- test_data$AvgHappiness_Score - predictionWithoutInteraction
+rmseWithoutInteraction <- sqrt(mean(residualsWithoutInteraction^2))
+
+sstWithoutInteraction <- sum((test_data$AvgHappiness_Score - mean(test_data$AvgHappiness_Score))^2)
+sseWithoutInteraction <- sum(residualsWithoutInteraction^2)
+r_squaredWithoutInteraction <- 1 - (sseWithoutInteraction / sstWithoutInteraction)
+```
+
+Sets up a data frame for the predicted vs actual graph
+```{r, include=FALSE}
+plotDataWithoutInteraction <- data.frame(
+  Actual = test_data$AvgHappiness_Score,
+  Predicted = predictionWithoutInteraction
+)
+```
+
+Defines the accaptable range
+```{r, include=FALSE}
+acceptable_range <- 0.5 
+```
+
+Mutates the plotPredictionsWithoutInteraction datafranme by adding two columns:
+1. Caculates the absoulte difference between the predicated vs actual happiness score
+2. Catogorizes the point into a catagory based wether it falls into the acceptable range 
+```{r, include=FALSE}
+plotPredictionsWithoutInteraction <- plotDataWithoutInteraction %>%
+  mutate(
+    Difference = abs(Predicted - Actual),
+    Category = case_when(
+      Difference <= 0.01 ~ "Correct",  # Small threshold for "Correct"
+      Difference <= acceptable_range ~ "Near Miss",
+      TRUE ~ "Misclassified"
+    ),
+    Category = factor(Category, levels = c("Correct", "Near Miss", "Misclassified"))
+  )
+```
+
+
+Counts the number of points in each catogory
+```{r, include=FALSE}
+categoryCountsWithoutInteraction <- plotPredictionsWithoutInteraction %>%
+  group_by(Category) %>%
+  summarize(Count = n()) %>%
+  ungroup()
+```
+
+
+Caculates the fraction (Correct + Near Miss)/ Misclassified
+```{r, include=FALSE}
+correctPercentage <- categoryCountsWithoutInteraction[1,2] / ( categoryCountsWithoutInteraction[1,2] + categoryCountsWithoutInteraction[2,2]) 
+correctPercentage <- round(correctPercentage,2)
+correctPercentage <- sprintf("%.2f%%", correctPercentage * 100)
+```
+
+Sets up the text for an annonatation on the graph
+```{r, include=FALSE}
+countTextWithoutInteraction <- paste(
+  "\nCorrect:", categoryCountsWithoutInteraction$Count[categoryCountsWithoutInteraction$Category == "Correct"],
+  "\nNear Miss:", categoryCountsWithoutInteraction$Count[categoryCountsWithoutInteraction$Category == "Near Miss"],
+  "\nMisclassified:", categoryCountsWithoutInteraction$Count[categoryCountsWithoutInteraction$Category == "Misclassified"],
+  "\nCorrect Percentage:", correctPercentage, "%",
+  "\nRMSE:", round(rmseWithoutInteraction, 2),
+  "\nR-squared:", round(r_squaredWithoutInteraction, 2)
+)
+```
+
+use ggplot to create a graph
+Key details:
+1. geom_point-plots the actual scores vs the predicted scores as a scatter plot
+2. geom_abline- adds 3 lines: one in the line y= x, any points directly on this curve were correctly predicted. The two other lines represent the margin of error, and any point between these two lines is classified as a near miss.
+3. Labs- adds label to the grpah
+4. scale_color_manual- changes the color of the points based on accuracy of the predictions
+5. scale_shape_manual- changes the shape of the points based on accuracy of the predictions
+6. Theme- adjust positions, size, and format of some text
+7. guides- correctly formats the legend
+8. annonate- adds importnat information as text to the graph 
+```{r, include=FALSE}
+plotWithoutInteraction <- ggplot(plotPredictionsWithoutInteraction, aes(x = Actual, y = Predicted)) +
+  geom_point(aes(color = Category, shape = Category), alpha = 0.7, size = 3) +
+  geom_abline(intercept = 0, slope = 1, color = "black", linetype = "dashed") +  # Perfect prediction line
+  geom_abline(intercept = acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  geom_abline(intercept = -acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  theme_minimal() +
+  labs(
+    title = "Actual vs. Predicted AvgHappiness_Score",
+    subtitle = "Multiple Regression Without Interaction Terms",
+    x = "Actual AvgHappiness_Score",
+    y = "Predicted AvgHappiness_Score",
+    color = "Prediction Category",
+    shape = "Prediction Category"
+  ) +
+  scale_color_manual(
+    values = c("Correct" = "green", "Near Miss" = "purple", "Misclassified" = "red"),
+    drop = FALSE  # Prevent dropping unused levels
+  ) +
+  scale_shape_manual(
+    values = c("Correct" = 16, "Near Miss" = 17, "Misclassified" = 4),
+    drop = FALSE  # Prevent dropping unused levels
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.title = element_text(size = 13),
+    legend.text = element_text(size = 11)
+  ) +
+  guides(
+    color = guide_legend(override.aes = list(shape = c(16, 17, 4))),
+    shape = guide_legend(override.aes = list(color = c("green", "purple", "red")))
+  ) +
+  annotate(
+    "text",
+    x = 7,
+    y = 5,
+    label = countTextWithoutInteraction,
+    size = 3,
+    color = "black",
+    hjust = 1,  
+    vjust = 1  
+  )
+```
+
+Prints the graph
+```{r, include=TRUE}
+print(plotWithoutInteraction)
+```
+
+### 2. Regression Model With Interaction Terms
+
+
+Builds a multilinear regression model but this time including all pairwise interaction terms:
+
+PairWise interaction terms: The pair wise interaction terms are the interaction terms that only in reference to one other variable. This is done to ensure stability in our model as other it starts to calculate the interaction between more than two variables leading to over fitting
+```{r, include=FALSE}
+regressionModelWithInteraction <- lm(
+  AvgHappiness_Score ~ (AvgGDP + AvgFamily + AvgCorruption + AvgFreedom + AvgGenerosity + AvgLifeExpectancy)^2,
+  data = train_data
+)
+```
+
+Predicts the happiness scores for the test data
+```{r, include=FALSE}
+predictionWithInteraction <- predict(regressionModelWithInteraction, newdata = test_data)
+```
+
+Caculates performance metrics for this model
+```{r, include=FALSE}
+residualsWithInteraction <- test_data$AvgHappiness_Score - predictionWithInteraction
+rmseWithInteraction <- sqrt(mean(residualsWithInteraction^2))
+
+sstWithInteraction <- sum((test_data$AvgHappiness_Score - mean(test_data$AvgHappiness_Score))^2)
+sseWithInteraction <- sum(residualsWithInteraction^2)
+r_squaredWithInteraction <- 1 - (sseWithInteraction / sstWithInteraction)
+```
+
+sets up dataframe for the actual vs predicted model
+```{r, include=FALSE}
+plotDataWithInteraction <- data.frame(
+  Actual = test_data$AvgHappiness_Score,
+  Predicted = predictionWithInteraction
+)
+```
+
+Mutates the plotPredictionsWithoutInteraction datafranme by adding two columns:
+1. Caculates the absoulte difference between the predicated vs actual happiness score
+2. Catogorizes the point into a catagory based wether it falls into the acceptable range 
+```{r, include=FALSE}
+# Categorize predictions based on the difference
+plotPredictionsWithInteraction <- plotDataWithInteraction %>%
+  mutate(
+    Difference = abs(Predicted - Actual),
+    Category = case_when(
+      Difference <= 0.01 ~ "Correct",  # Small threshold for "Correct"
+      Difference <= acceptable_range ~ "Near Miss",
+      TRUE ~ "Misclassified"
+    ),
+    # Ensure Category is a factor with all levels, even if some have zero counts
+    Category = factor(Category, levels = c("Correct", "Near Miss", "Misclassified"))
+  )
+```
+
+Counts the numbers of points in each catogory
+```{r, include=FALSE}
+categoryCountsWithInteraction <- plotPredictionsWithInteraction %>%
+  group_by(Category) %>%
+  summarize(Count = n()) %>%
+  ungroup()
+```
+
+Caculates the fraction (Correct + Near Miss)/ Misclassified
+```{r, include=FALSE}
+correctPercentage <- (categoryCountsWithInteraction[1,2] + categoryCountsWithInteraction[2,2]) / ( categoryCountsWithInteraction[1,2] + categoryCountsWithInteraction[2,2] + categoryCountsWithInteraction[3,2]) 
+correctPercentage <- round(correctPercentage,2)
+correctPercentage <- correctPercentage * 100
+```
+
+Sets up labels for later
+```{r, include=FALSE}
+countTextWithInteraction <- paste(
+  "\nCorrect:", categoryCountsWithInteraction$Count[categoryCountsWithInteraction$Category == "Correct"],
+  "\nNear Miss:", categoryCountsWithInteraction$Count[categoryCountsWithInteraction$Category == "Near Miss"],
+  "\nMisclassified:", categoryCountsWithInteraction$Count[categoryCountsWithInteraction$Category == "Misclassified"],
+  "\nCorrect Percentage:", correctPercentage, "%",
+  "\nRMSE:", round(rmseWithInteraction, 2),
+  "\nR-squared:", round(r_squaredWithInteraction, 2)
+)
+```
+
+use ggplot to create a graph
+Key details:
+1. geom_point-plots the actual scores vs the predicted scores as a scatter plot
+2. geom_abline- adds 3 lines: one in the line y= x, any points directly on this curve were correctly predicted. The two other lines represent the margin of error, and any point between these two lines is classified as a near miss.
+3. Labs- adds label to the grpah
+4. scale_color_manual- changes the color of the points based on accuracy of the predictions
+5. scale_shape_manual- changes the shape of the points based on accuracy of the predictions
+6. Theme- adjust positions, size, and format of some text
+7. guides- correctly formats the legend
+8. annonate- adds importnat information as text to the graph 
+```{r, include=FALSE}
+plotWithInteraction <- ggplot(plotPredictionsWithInteraction, aes(x = Actual, y = Predicted)) +
+  geom_point(aes(color = Category, shape = Category), alpha = 0.7, size = 3) +
+  geom_abline(intercept = 0, slope = 1, color = "black", linetype = "dashed") +  # Perfect prediction line
+  geom_abline(intercept = acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  geom_abline(intercept = -acceptable_range, slope = 1, color = "blue", linetype = "dotted") +
+  theme_minimal() +
+  labs(
+    title = "Actual vs. Predicted AvgHappiness_Score",
+    subtitle = "Multiple Regression With Interaction Terms",
+    x = "Actual AvgHappiness_Score",
+    y = "Predicted AvgHappiness_Score",
+    color = "Prediction Category",
+    shape = "Prediction Category"
+  ) +
+  scale_color_manual(
+    values = c("Correct" = "green", "Near Miss" = "purple", "Misclassified" = "red"),
+    drop = FALSE  # Prevent dropping unused levels
+  ) +
+  scale_shape_manual(
+    values = c("Correct" = 16, "Near Miss" = 17, "Misclassified" = 4),
+    drop = FALSE  # Prevent dropping unused levels
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 14),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14),
+    legend.title = element_text(size = 13),
+    legend.text = element_text(size = 11)
+  ) +
+  guides(
+    color = guide_legend(override.aes = list(shape = c(16, 17, 4))),
+    shape = guide_legend(override.aes = list(color = c("green", "purple", "red")))
+  ) +
+  annotate(
+    "text",
+    x = 7,
+    y = 5,
+    label = countTextWithInteraction,
+    size = 3,
+    color = "black",
+    hjust = 1,  # Align text to the right
+    vjust = 1  # Align text to the top
+  )
+```
+
+Prints the graph
+```{r, include=TRUE}
+print(plotWithInteraction)
+```
+
+Saves the plots and data
+```{r, include=FALSE}
+# Save the plot
+ggsave(
+  filename = "/cloud/project/Models/MultiLinearRegression/DataAndGraphs/Actual_vs_Predicted_MultipleRegression_WithInteraction.png",
+  plot = plotWithInteraction,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+# Save the plot
+ggsave(
+  filename = "/cloud/project/Models/MultiLinearRegression/DataAndGraphs/Actual_vs_Predicted_MultipleRegression_WithoutInteraction.png",
+  plot = plotWithoutInteraction,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+# Save the model summary
+sink("/cloud/project/Models/MultiLinearRegression/DataAndGraphs/MultiRegressionModelWithoutInteraction.txt")
+cat("Multiple Regression Without Interaction Terms: AvgHappiness_Score ~ AvgGDP + AvgFamily + AvgCorruption + AvgFreedom + AvgGenerosity + AvgLifeExpectancy\n\n")
+print(summary(regressionModelWithoutInteraction))
+sink()
+
+# Save the model summary
+sink("/cloud/project/Models/MultiLinearRegression/DataAndGraphs/MultiRegressionModelWithInteraction.txt")
+cat("Multiple Regression With Interaction Terms: AvgHappiness_Score ~ (AvgGDP + AvgFamily + AvgCorruption + AvgFreedom + AvgGenerosity + AvgLifeExpectancy)^2\n\n")
+print(summary(regressionModelWithInteraction))
+sink()
+```
+
+

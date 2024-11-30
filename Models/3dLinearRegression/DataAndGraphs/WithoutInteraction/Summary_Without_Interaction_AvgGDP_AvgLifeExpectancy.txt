@@ -1,0 +1,25 @@
+Regression Model Summary without Interaction:
+
+
+Call:
+lm(formula = formula, data = merged_data)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-1.67998 -0.40553  0.01037  0.41210  1.19838 
+
+Coefficients:
+                  Estimate Std. Error t value Pr(>|t|)    
+(Intercept)         2.9628     0.1528  19.386  < 2e-16 ***
+AvgGDP              1.4495     0.2437   5.949 2.14e-08 ***
+AvgLifeExpectancy   1.7590     0.4262   4.127 6.35e-05 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Residual standard error: 0.6052 on 137 degrees of freedom
+Multiple R-squared:  0.7026,	Adjusted R-squared:  0.6983 
+F-statistic: 161.9 on 2 and 137 DF,  p-value: < 2.2e-16
+
+
+RMSE: 0.6
+R-squared: 0.7
