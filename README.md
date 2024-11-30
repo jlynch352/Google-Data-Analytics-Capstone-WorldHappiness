@@ -14,7 +14,7 @@ This project aims to build different models—Linear Regression, Multiple Linear
 k-Nearest Neighbors, and Decision Tree—to accurately predict countries’ happiness scores,
 and analyze these models to understand why certain models performed better than others
 
-##Note
+## Note
 ### For a summary of each model and explanation of the results go to the ProjectExplanation PDF 
 
 ## Folders
