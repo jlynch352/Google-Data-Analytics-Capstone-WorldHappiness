@@ -35,6 +35,10 @@ This project utilized a diverse set of skills and tools to effectively analyze t
   - **Model Building**: Implementing various machine learning algorithms such as Linear Regression, k-Nearest Neighbors, and Decision Trees.
   - **Data Visualization**: Creating insightful visualizations using libraries like ggplot and plotly to illustrate findings and model performance.
 
+- **LaTeX**
+  - **Constructing**: Used LaTeX to construct a file with documentation and charts.
+  - **Complex Formatting**: Used LaTeX to add advanced formatting options to my file.
+
 - **Data Analysis**
   - **Exploring Data**: Identifying patterns, trends, and groups within the dataset.
     
@@ -43,14 +47,13 @@ This project utilized a diverse set of skills and tools to effectively analyze t
   - **Model Evaluation**: Assessing models using metrics such as RMSE and R-squared to determine their effectiveness.
 
 - **Data Visualization**
-  - **Plotting & Graphing**: Generating various different plots to visualize raw data, model outcomes, and certain model's innerworkings.
-  - **Visual Story Telling**: Developed comprehensive visualizations to illustrate trends, patterns, and relationships within the data, facilitating a clear and engaging narrative of why you might make certain desicions when building a model.
-   
-- **Project Buiildig**
+  - **Plotting & Graphing**: Generating various plots to visualize raw data, model outcomes, and certain models' inner workings.
+  - **Visual Storytelling**: Developed comprehensive visualizations to illustrate trends, patterns, and relationships within the data, facilitating a clear and engaging narrative of why certain decisions might be made when building a model.
+     
+- **Project Building**
   - **Annotated Code**: Providing clear and detailed explanations within the code for better understanding and reproducibility.
   - **Reporting**: Compiling findings and methodologies into comprehensive reports and PDFs.
-  - **Transfering Data and Files**: Moving data and files from one application or software from another. For example, I started this project in SQL then transfored it to R by using CSV files and Excel, and the finally uploaded the files to github. I also worked with file pahts as I excuted my JoinedTablesOnCountry.R internally in all my my R scripts, and saved their plots to the proper folders within the scipt using absolute paths.
-
+  - **Transferring Data and Files**: Moving data and files from one application or software to another. For example, I started this project in SQL, then transformed it to R by using CSV files and Excel, and then finally uploaded the files to GitHub. I also worked with file paths as I executed my `JoinedTablesOnCountry.R` internally in all my R scripts, and saved their plots to the proper folders within the scripts using absolute paths.
 
 ## Project Structure
 
@@ -72,7 +75,7 @@ The Data and Graphs subfolder includes:
 
 #### Plots
 
-The Plots folder houses all the plots generated from various scripts throughout the project. 
+The Plots folder houses all the plots generated from various scripts throughout the project.
 
 #### Data
 
@@ -99,7 +102,3 @@ The SQL folder includes all SQL scripts and tables used in the project. This com
 ---
 
 Feel free to navigate through the folders to explore the detailed implementations, analyses, and visualizations associated with each model and aspect of the project.
-
-
-
-
