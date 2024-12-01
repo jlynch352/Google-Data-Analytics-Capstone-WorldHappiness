@@ -2,7 +2,7 @@
 # Google Capstone
 
 ## Note
-#### For a full of the results of each model and how it performed compared to others go to the Project Explanation PDF
+#### For a full summary of the results of each model and how it performed compared to others go to the Project Explanation PDF
 
 ### Overview
 
