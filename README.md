@@ -2,7 +2,7 @@
 
 ## Note
 
-For a full summary of the results of each model and how it performed compared to others, please refer to the [Project Explanation PDF](Project_Explanation.pdf).
+For a full summary of the results of each model and how it performed compared to others, please refer to the [Project Explanation PDF](ProjectExplanation.pdf).
 
 ### Overview
 
