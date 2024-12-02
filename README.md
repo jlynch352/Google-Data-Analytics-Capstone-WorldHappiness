@@ -4,6 +4,7 @@
 
 For a full summary of the results of each model and how it performed compared to others, please refer to the [Project Explanation PDF](ProjectExplanation.pdf).
 
+
 ### Overview
 
 This project serves as the Capstone project for the **Google Data Analytics Professional Certificate**. It explores the **World Happiness Report** dataset, examining different models for predicting a country’s happiness score based on the data provided in the dataset.
@@ -99,6 +100,37 @@ The SQL folder includes all SQL scripts and tables used in the project. This com
 - **SQL Scripts**: Queries and commands used to clean and transform the raw data.
 - **Tables**: Database tables created and used for storing intermediate and final datasets.
 
----
+## Running the Scripts
 
-Feel free to navigate through the folders to explore the detailed implementations, analyses, and visualizations associated with each model and aspect of the project.
+To run the scripts, follow these steps:
+
+1. **Download Scripts**:
+   - Download the `TablesJoinedOnCountry.R` script.
+   - Download your desired model script (e.g., `LinearRegressionOfFGDPMarkdown.rmd
+`, `DecisionTreeMarkdown.rmd`, etc.).
+
+2. **Adjust the Source Path**:
+   - Open your chosen model script in RStudio or your preferred R environment.
+   - Locate the line that sources the `TablesJoinedOnCountry.R` script:
+     ```r
+     source("/cloud/project/Scripts/TablesJoinedOnCountry.R")
+     ```
+   - Modify the path to point to the location where you saved `TablesJoinedOnCountry.R`:
+     ```r
+     source("/path/to/TablesJoinedOnCountry.R")
+     ```
+
+3. **Adjust Filepaths for Output**:
+   - In the script, locate the sections where outputs (such as plots and data) are saved.
+   - Modify the filepaths to direct the outputs to your desired directories. For example:
+     ```r
+     ggsave("/path/to/Plots/linear_regression_plot.png")
+     ```
+   - Ensure all paths are correctly specified to avoid any file-saving issues.
+
+4. **Run the Script**:
+   - Execute the script in your R environment.
+
+## Additional Resources
+
+Explanation of Models and Data -> [Project Explanation PDF](ProjectExplanation.pdf).
